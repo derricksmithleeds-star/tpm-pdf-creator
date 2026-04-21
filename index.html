@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Renewtech — Contract Confirmation Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --panel: #ffffff;
+    --ink: #1a1a1a;
+    --muted: #6b7280;
+    --line: #e4e6eb;
+    --accent: #c9372c;
+    --accent-dark: #a02820;
+    --ok: #047857;
+    --warn: #b45309;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  header {
+    background: var(--ink);
+    color: #fff;
+    padding: 14px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 3px solid var(--accent);
+  }
+  header h1 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: 0.3px; }
+  header .tag { font-size: 12px; color: #cbd5e1; }
+  .wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px 28px 80px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 20px 22px;
+    margin-bottom: 18px;
+  }
+  .panel h2 {
+    margin: 0 0 14px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--muted);
+    font-weight: 600;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 8px;
+  }
+  .grid { display: grid; gap: 12px 16px; }
+  .grid.two { grid-template-columns: 1fr 1fr; }
+  .grid.three { grid-template-columns: 1fr 1fr 1fr; }
+  label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  input[type=text], input[type=date], textarea {
+    width: 100%;
+    padding: 7px 10px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+    background: #fff;
+    color: var(--ink);
+  }
+  input:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(201,55,44,0.12); }
+  textarea { resize: vertical; min-height: 80px; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
+  .paste-area { min-height: 140px; }
+  .row-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  button {
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 16px;
+    border-radius: 4px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--ink);
+    transition: all 0.12s;
+  }
+  button:hover { background: #f9fafb; border-color: #d1d5db; }
+  button.primary {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  button.primary:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
+  button.ghost { background: transparent; }
+  button.danger { color: var(--accent); border-color: transparent; padding: 4px 8px; }
+  button.danger:hover { background: #fee2e2; }
+
+  table.products {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+    font-size: 12px;
+  }
+  table.products th {
+    text-align: left;
+    padding: 8px 6px;
+    background: #f9fafb;
+    border-bottom: 1px solid var(--line);
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    font-size: 10.5px;
+    letter-spacing: 0.5px;
+  }
+  table.products td {
+    padding: 4px 3px;
+    border-bottom: 1px solid #f1f3f5;
+    vertical-align: top;
+  }
+  table.products td input {
+    width: 100%;
+    border: 1px solid transparent;
+    background: transparent;
+    padding: 5px 6px;
+    font-size: 12px;
+  }
+  table.products td input:hover { border-color: var(--line); }
+  table.products td input:focus { border-color: var(--accent); background: #fff; }
+  table.products tr:hover td { background: #fafbfc; }
+
+  .parse-feedback {
+    margin-top: 10px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    display: none;
+  }
+  .parse-feedback.success { display: block; background: #ecfdf5; color: var(--ok); border: 1px solid #a7f3d0; }
+  .parse-feedback.warn { display: block; background: #fffbeb; color: var(--warn); border: 1px solid #fde68a; }
+
+  .footer-actions {
+    position: sticky;
+    bottom: 0;
+    background: linear-gradient(to top, var(--bg) 60%, rgba(244,245,247,0));
+    padding: 20px 0 10px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  .hint { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+  .logo-row { display: flex; align-items: center; gap: 14px; }
+  .logo-preview {
+    width: 80px; height: 40px;
+    border: 1px dashed var(--line);
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; color: var(--muted);
+    background: #fafafa;
+    overflow: hidden;
+  }
+  .logo-preview img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .inline-link { color: var(--accent); text-decoration: none; font-size: 12px; cursor: pointer; }
+  .inline-link:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Contract Confirmation Generator</h1>
+  <span class="tag">Internal tool — Renewtech</span>
+</header>
+
+<div class="wrap">
+
+  <!-- Logo upload -->
+  <div class="panel">
+    <h2>Branding</h2>
+    <div class="logo-row">
+      <div class="logo-preview" id="logoPreview"><img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCAB0AtcDASIAAhEBAxEB/8QAGwABAQADAQEBAAAAAAAAAAAAAAUDBAYCAQj/xAA7EAACAgADAwkGBQMEAwAAAAAAAQIDBAUREiExEyI0QVFTcXKRFBUyM1JhgZKhscEjQuEkYoLRJUPw/8QAGQEBAAMBAQAAAAAAAAAAAAAAAAIDBAEF/8QAJxEAAwACAAYCAgMBAQAAAAAAAAECAxEEEhMhMTJBURQiIzNCYVL/2gAMAwEAAhEDEQA/APxkAAAAAAAZcLS774wXDrfYjqW3pBvRuZZhIWVu26Oqfwr+Tc9iwvcr1ZmSjCCS3RiiLi8VO2+Uozko8Ek+o2VyYpW1szrmtlT2LC9yvVj2LC9yvVkXlbe8l6jlbe8l6lfWj/yS6dfZa9iwvcr1ZixWBpdEnVBRkt6ep7y2ucKNuxycp7974Ix5tiNivkYvnS4/ZFtKeTbRBb5tJkgAGE0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAs5XRyVG3Jc+e/wRoZdRy16bXMjvZZtnGuuU5cIrU1cPH+mU5a/wAo0s3v2K1TF86XHwJJ7vslbbKyXFs8FOS+etlkTyrQNnLqOXv5y5kd7NdJtpLe2XcDQqKFH+575P7ksMc1HMlcqMts411ynLcorUgX2yutlZLi36G7m+I2pKiL3LfInEs97fKiOKdLZkw9UrrVXHi+vsPM4yhNwktGnoytlWH5OrlJLnT/AERr5zCtWxknz2t6/ki8Wo5jqvdaJ4AKSwAAAAAA90Vu22NaaTk9De91z76Poa2XdNq8S6acOOaW2U5LcvsS/dc++j6D3XPvo+hUGq7S7oR9EOpRL91z76PoHlc+q2PoVNV2gdCPodSiPZluIiubsy8Gatlc65bM4uL+50R4uqhdBwsjqv2IVw6/ySWV/JzoMuJplRdKt9XB9qMRka09MvT2AAcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK+V01PCxsdcXJt72vuTxxzvRGq5VskA281SWMeiS3Lgahyp5Xo6ntbAAInQAAAAAAAAAAAAAAAAADawWDeJi5baik9OGp8x+GjhpxjGTlqtd5u5L8ifm/gw5186vymhxKxc3yVKnz6J4AM5aAAAAAAAAAAAAAD7GLlJRitW3ogD4Cmsr3LW7f5f8j3Uu/f5f8AJb0L+iHUkwYXGvD1bEaovrb7Tzi8bPEQUNFFdenWbPupd+/y/wCR7qXfv8v+SfJl1ojzRvZMBT91Lv3+X/I91Lv3+X/JDoX9EupJjynD7dnLSXNjw8Shi7lRQ5vjwXie6K41VRrjwSJGZ4jlr9mL5kNy+7ND/hx/9KvejVlJyk5Serb1ZsZfRy96TXMjvka6Tb0XEuYCjkMOotc575GfDHPXctuuVGaco11uUnpGKIGItlddKyXX+hvZxfq1RF8N8ibo9NeonxF7fKiOKdLYABnLQAAAAADYy7ptXiXSFl3TavEum3hvVmfL5MeK6NZ5Wc/tS+p+p0GK6NZ5Wc8V8T5RLD4Z92pfU/U91X21y1hZJfiYwZ02i7Rfwl3L0Rs4Pg/EzGlk2vssvO/2Runo43uU2ZKWnomZ3HnVT7U0yaU87e6qPiyYYs/uzRj9QDYweFniJbubBcZFOrA4eC3w232yEYavuKyKSIDoVRSuFVf5UfJYeh8aYflLPxn9kOsvo58Fi/LqZp8nrCX24EvEUzpscJrTsfaVXiqPJZNqvBjAN3CYCd0FOctiL4bt7IzLp6R1tLyaQLMMuw8eKlLxZmjhcPHhTD8VqXLhq+St5UQAdDyNPDkq/wAqPMsLh5LfTD8Fod/Gf2c6y+iACljcvUYOynXdxiTSm4cPTLJpV4APsU5NJLVvginhstjsqV7ev0oRDt9hVKfJLBfhhcPHhTD8VqeuRp005Kv8qLvxn9lfWRzwL08HhprfVFeG40MZl7ri51NyiuK60QrBUrZKciZoAFfC4PDTw9c3DVuKbevWQjG7ekSqlPkkAuew4bu/1I+Ihyd84LhGTSO3iceTk2q8GMA3q8ttnWpbcY6rXRkZh14JOkvJogoe67e9h+p8lllqi2rIPTqJdG/ojzz9mgAe6o7dsIfU0ismeAXPYcN3f6mHGYTD14ac1HRpbt5e+HpLZWsqZJLeVdCh4v8AciFvKuhQ8X+53hvc5l9TQzfpj8qNMv3YWm2e3OGr8Tx7Dhu7/UleCqps5ORJaIYKGaYammqMq46Ny04mgk20ktW+BnuHL0y2a2tnwFTC5bHZUr22/pXUbSowta311rzaFs8PTW32IPKl4IIL2zhJbtKX6Hi3A4exbo7D7YnXw7+Gc6q+SIDPi8NPDz0lvi+EjAUNNPTLE9+AD7GLlJRim2+CRUw2WwSUrm5PsXAlGOr8HKpT5JQL6ow0F8qteKGxhpf20v8ABF34z+yHVX0QAXJ4HDTXy9PBknGVRpxEq4ttLtK7xOFtkptUUMl+RPzfwYc6+dX5TNkvyJ+b+DNiMHXfbylkpblpoi9S6xJIq2le2QwXY4PCwXy4/ietnCx/tpX4Ir/HfyyfVX0QAX3h8NYvl1tfZE/MMCqo8rVrs9a7CN4KlbOzkTejQABSWAAAAAAAz4K2ui3lJxcmlu0MAOp6e0ca2VfelfdS9R70r7qXqSgW9eyHSkq+9K+6l6j3pX3UvUlAdex0pKvvSvupeo96V91L1JQHXsdKShiMyc4ONUNnVb2yeD1XCVk1CK1bZCrq33JKVPg3Mpw/KW8rJc2HD7spYq5UUysfVwXaz7h6o00xrj1IlZpfyt2xF8yG7xZq/px/9KfejWW3db2ykyriMHH2JVwXOhvT7X1kmuUoTU4vRp6ov4e2N1MbI9fH7FeBTW0yeRta0c8DdzWjk7uUiubP9GaRRUuXplie1sAAidAAANjLum1eJdIWXdNq8S6beG9WZ8vkx4ro1nlZAUJvhGXodGNF2EsmLnfk5F8pzqptfCuXoZqcDiLH8Gyu2RcBBcNPyzrysx4eqNNMa49XX2nuUlGLlJpJcWa+MsxUZJUVqUdOP3JeLnipP+vtpdjWiJ3lULSRyYdfIx9/tF7kvhW5GGEXOaiuLeh5NjLo7WNrX31/Qx97rv8AJo9UWqK41VRrjwSPtk4wg5yeiS1Z6NTNnpg2u1pHoU+WdoyruzWszSW1zK1p9zJhcxVlihbBR1eiaJQW5mFZ73vZo6c6OlNXM6VbhnLTnQ3o2KpbVUZdqTPsltRcX1rQ3UuadGZPTObOgwnRavKjnzoMJ0aryoy8N5Zdm8Iyk6/MnCyUI1a6PTVsonPYrpFnmZbntylohjlN9zdjmk9rnVx0+zKVc1OEZx4SWqOcL2X9Cq8CGDJVNpkskpLsZznsVHYxFkVwUnodCQcf0y3zHeJ8IYfJs5NSpTlc18O5eJVNTKo7ODi+1tm2WYZ1CIZHujVxuMjh2oqO1NrXTsNRZpbrvrhoa+Yy2sZZ9noa5mvNXM9MunHOi/hb4YivbjufWuwzErJZf1rIdTjr/wDepVNWKuadsoudPRDzGlU4mSXwy3ooZRPawmz9L0MOdx+XLxR5yWelllfatSif0zaLX+0bKhFzWOzjJP6kmWiXncf6lc+1NFnELcEMT/Y0ILanGPa9DoorRJLqIWAjt4ytdktfQvEOGXZslmfdIAwq3/WOr/Zr+pmNKeyprRz2JjsYiyPZJmXLY7WMh9t56zWOzjZP6kme8mjriJS7ImCZ/k1/00t/psrmjnE9nDKH1SN4k51PW+EPpRrzPUMoxrdGgW8q6FDxf7kQt5V0KHi/3M/De5bl9TSzWyccW1GcktFwZqcrb3kvU2c36Y/KjTK8jfOyUL9UepTnL4pN+LN3J6VO2VrW6HDxNAsZNHTCt9siWFc19xkepMmY4h0U6x+OT0X2IkpSlLWTbf3N/Opf1YR7I6k8Z6brRzGtIG5l2KnXaq5SbhLdv6jTC3PVFc05e0Ta2tHQYqpXUSg+LW7xIDWj0Z0cHtQjLtWpAxS2cTYv9zNHErwyrE/KNzJqk5Sua4bkbWYYl4epbPxy4fY+ZTHTBxfa2zSziWuKUeqMSW+TF2Oa5r7mpOc5y2pycn9zyAYy8yV33VvmWSX4nmcpTm5yesnvbPIO7fgaK2S/In5v4PObX21zhGubimtXoesl+RPzfwYc6+dX5TU21h7FC/sNGU5y+KTfizyAZC8zYO6VN8XFvRvRrtLl0VOmcXwcWjn4fHHxOil8D8DXw72mijL5RzYAMheAAAAAAVMvwVcqdu6OrlwXYjY9hw3dL1PmW3q6hJ/FDcz7j7LqauUq2Wl8SaN8zCjejM3TrQ9hw3dL1HsOG7pepoe8sR2Q9B7yxHZD0IdXF9EuS/s3/YcN3S9R7Dhu6XqaHvLEdkPQe8sR2Q9B1cX0OS/s33gcM1pyen4kzH4V4aa0bcJcGzbwOPnbcq7dlJ8Gl1m5i6VfRKD48U/udcRkncnE6h9znyhksIuyc2t8VojQlFxk4yWjW5mfL7+QvTfwy3SM2NpWmy61uexVzC2VWFlKK3vdr2EI6OyMbK3CW+MloQMTVKm6Vcurh90XcSntP4K8TXgxm7lWI5O3kpPmz/RmkE9HqjPNOXtFrW1o6HE1K6mVb6+H2ZAnFwm4yWjT0Zby+/l8Om3zo7pGrnFHC+K+0jTmlXPOinG+V8rJgAMheAAAbGXdNq8S6Qsu6bV4l028N6sz5fJ4vk4UzlHiotokrMcT2xf/ABKuK6NZ5Wc8R4iqlrTO4pTXc3VmWI7K3+BkqzSWv9StadsScChZbXyWck/R0dVkLa1OD1iz7KMZRcZJNPqZoZLJumyOvCWpQN0VzSmZ6Wnoh5hh1h7tI/DLej7lXTYeD/Y286jrVXLrUtDTy2Wzja32tr9DJUqcpenuC4eLa4Ww2bI7S46HswY22VFDshFNp9ZtppLuZ157Hz2LDd0h7Fhu6Ro+9Le7gPelvdwKOpiLOSyrFKMVFLRLcj6SfelvdwDzO7TdCCZLrwc6dGjL4n4l/CdGq8qOfOgwnRqvKinhvLJ5fCMpz2K6RZ5mdCc9iukWeZk+J8I5h8sxl7L+hVeBBL2X9Cq8CvhvZksvgzkHH9Mt8xeIOP6Zb5izifVEMXkrZb0KvwNg1cqltYOK7G0bRdj9UQryzBPC4ec3KVabfFnz2LDd0jWxWPtpvlXycWlw1MXvS3u4FTyY0+5NTZRpw9NUnKuCi2tDKSfelvdwHvS3u4HVmxrwceOmZc7+XV4s08unsYyH3egxeKnidnaSSjwSMMG4zjJcU9TNdp5OZF0zqdM6M0c5jrh4y7JG7FqUVJcGtTBmMdrB2LsWptyLcMzy9Uifk8dcU5fTEsE3JI82yf3SKMnsxbfUtSGBaglke6Jkbf8AzDeu7XZKhzqsav5Tr2tr9ToiOCt7O5FrRLzqOllc+1NHvJI822fa0j3nMdcNGX0yPWUR0wmva2zin+Y7v+M3CDj57eLsfUnovwLlktiuUuxanOt6tt9ZziX2SGFfJ8LeVdCh4v8AciFvKuhQ8X+5Dhvcll9TQzfpj8qNM3M36Y/KjTKsvuyceqBZyjon/JkYsZNLXCtdkizh/cjl9TJisHViJqc5TTS03NGL3Zh/rt9V/wBHjNL76boqubjFx7DT9txXfP0RZd41TTRCZprszf8AdmH+u31X/R9924fts9Sf7biu+foh7biu+foiPUxf+SXLf2XIRUYqK4JaEHHdLt8zPXtuK75+iMEpOUnKT1b4sjlyq0kjsQ5fct5Z0Gv8f3ZOzXps/BfsUMqeuCiuxtGjnEdMXr9UUyzL3xIhHuzSABkLwAACtkvyJ+b+DDnXzq/KZsl+RPzfwYc6+dX5TXX9JQv7CeADIXnqHxx8TopfA/A52Hxx8TopfA/A1cN8lOX4ObABlLgDcpoqhXCdsZWTsfMgnp6mWVTS35etF2SepYsbZB2icDZvqqdKvo2lHXSUXxTBBrRJPZ5wV7ovU/7eEl9i49myHU4yRzhVyjEbUORk98fh8DRw96fKyrLPyaGLpdF8oPhxT7UYS1meH5anbiufDevuiKVZY5KJxXMgACsmfU2nquKLuBvV9Cl/ct0vEgmzl1/IXrV8yW5l2G+WiGSeZGxm+H0kr4rc90icdHZCNlcoS3qS0IF9UqbZVy4pks8ae0RxVtaKmVYjlKuSk+dD9UM1w/KVcrFc6H6ol4a2VN0bI9T3/dF+Eo2VqUd8ZIsxtZI5WRtclbRzgNjH0che0lzJb4mGuMpzUIrVt6IyOWnouT2tm9k0J8rKabUEtH92UMZOEMPN2LVaaadp9w1SppjWurj92S81xHKW8nF82H6s2f1Yyj3s0gAYjQAAAbGXdNq8S6QcDKMcXXKTSSfFlrl6e9h6mzh2lLKMq7jFdGs8rOeLuKvpeHsSsjq4vrIRDiWm0SxeAADMWlLJH8xeBTJGUWQhbPbko6rdqU+Xp72HqbsNLkRmyL9jWzhf6VeYkwk4TUlxT1Kma21Sw2zGcXJy3JMklGd/v2LcfqdFTZG2qNkeDR6nGM4uMlqnuaImCxc8O9NNqD4oq04ui1c2xJ9j3M0Y8s2u5VUOWaN+WTUm6pprqT4mH3fidfgXqWk0+DTPpx8PDCy0iRDLLn8Uox/U8Y7B+zQhJTctXo9xXnbVBaysivFk/MsVRbTycG5PXXXTciF48cy/slN02TToMJ0aryo58uYW6lYatOyKaiushwzSbJZfBsnPYrpFnmZd5envYepCxDUr5yT1Tk9CfEtNIjiXcxl7L+hVeBBLWAuqWErTsimlvTZDh3qmSy+DbIOP6Zb5i1y9Pew9SJjJKWKslFppy3MnxDTlEcS7m1k1yjOVLfxb14lU5uMnGSlF6NcGVMJmMJJRv5svq6mMGVJcrGSHvaM2NwcMRpJPZmuvtNCWXYhPcoy8GVoWVzWsZxfgz2W1ii+5BXU9iLHL8S+MYrxZnryt/wDstS+yRSckuLS8WYbcXh6/itjr2LeQ6OOfJLqU/BDnFwnKL4p6HkyYmcbMROyK0UnqjGY357F6LuXT28HB9aWhmsjt1yj2rQn5RfCNU65zUd+q1ZvcvT3sPU346ThbM1JqjHl9EqKNiWm03ruPWOlsYSyX20PXL097D1NPNr4Sw6hCak3Lfo+oU1Mdgk3XclHQYSW3hq5f7Tnytld9awqhOcU4t7mzPw9aotyraNrGVO7DzrWmrW4YWt1YeFb4pbz7y9Pew9Ry9Pew9TV+u9lPfWjFmc9jBz7ZbiGUs3uhOMK4SUt+r0ZNMeet2X4lqQWspaeCiuxtEU3MtxSom4T+CXX2M5hpTXc7kW0fc4i1i9prc4rQ0joZKm+G/ZsXqY/ZMLHfyUfxLrwOq2mQnIktMhG/k9qhdKtvdPh4mbMlhlhnGLrU09UlxJcW4tNPRremUtdK0T95LWZYd31Jw+OPD7kWUXF6STTXUyrhMxhKKje9mXb1M2pRw961armXVE5f2llapx2Zz4LvsWG7pH1U4WrfsVx8SH4z+WS6qIbhNR2nGWz26bjyVswxOHlhpVxmpSfBLqJJVklS9J7Jy213KeS2LSdTe/ijNmmHldUpwWso9XaiTVZKqxTg9GivhsdTakpNQn2PgX47mp5KK7lquZEZpp6NaM+HQTpou3yhCX3PPsmGW/konPxn8M71V9EJJt6JN+AaaejWjL23hqV8VcPAj42cLMVOdb1iyvJjULySm+Z+DfyX5E/N/Bhzr51flPeT2VwpmpzjF7Wu9mLN5wndDYkpaR36MtprokEv5DRABlLj1D44+J0Uvgfgc5DdNN9pelfTybfKw4dpq4dpbKcq8EAAGUuN+zpuE7NmGnqZK1UsbJxulKzV6Qa0WvZqYarK7a61KxV21fDJrc0I0yV3Le00p6666mlP5RU0fKNfZsVtLTnR3ffVg+Ym2uNLpqntuUtqctNNWCqnrSJpGoe6bJVWxsjxTPAK09EjoqbI21RsjwkhyVXdw/KiDXfdXHZhZKK7Ez17ViO+n6mtcQtd0UdJ/Bc5Kru4flQ5Kru4flRD9qxHfT9R7ViO+n6j8ifodKvsuOmpr5UPyoiY2l0XuH9r3x8D57ViO+n6niy2yzTlJuWnDUry5JtdkTiHLK2VX8rTycnzofqjzm1G3VysVzo8fuibhrXTdGxdXFdqL0ZRsgpLfGSLcbWSOVldrkraOcKWT373RJ8d8TVx1Dovcf7XviYIScJqUXo09UZ5bx0XNKpLmPo5ehpfEt8TVyjD8b5r7RN3C3K+mNi6+K7GZN0VrwSNnJNUrM/M0uUwZhfyFDafPluiQjYx9/L4hyT5q3RNcyZr56L8c8qAAKiYAAAAAAAAAAAAAAAAAAAAB9Ta4Njal9T9T4AAAAAAAAAAAAAAAAAAABwPu1L6n6nwAH1tvi2fAAAAAAAAAAAAAAAAAAAAAAAD6m1wbQ2pfU/U+AAAAAH1Nrgz4AD7tS+p+obb4s+AAAAAAAA+ptcG0NqX1P1PgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABQy/EWQpcFo0nu1ALcPsQyeBmFrtp50Y6p7mieAM3sMfg3MtunXKUY6NNa6Mz43E2PDyjzVruegBbDfTIUv3JgAMpcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/9k=" alt="Renewtech logo"></div>
+      <div>
+        <input type="file" id="logoFile" accept="image/png,image/jpeg" style="font-size:12px;">
+        <div class="hint">Renewtech logo is already loaded. Upload a different PNG/JPG only if you want to override it.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contract details -->
+  <div class="panel">
+    <h2>Contract details</h2>
+    <div class="grid three">
+      <div><label>Contract number</label><input type="text" id="contractNumber" placeholder="e.g. CBA28AF01"></div>
+      <div><label>Contract date</label><input type="date" id="contractDate"></div>
+      <div><label>Your reference</label><input type="text" id="yourRef" placeholder="e.g. 60440P"></div>
+      <div><label>Customer number</label><input type="text" id="customerNumber"></div>
+      <div><label>Contract start</label><input type="date" id="contractStart"></div>
+      <div><label>Contract end</label><input type="date" id="contractEnd"></div>
+    </div>
+  </div>
+
+  <!-- Customer + contacts -->
+  <div class="panel">
+    <h2>Recipient &amp; contacts</h2>
+    <div class="grid two">
+      <div>
+        <label>Recipient company (top-left block)</label>
+        <textarea id="recipientBlock" rows="7" style="font-family:inherit;">Renewtech Ltd
+Unit B3A, Crimple Court
+Hombeam Square North
+Hornbeam Park
+North Yorkshire
+HARROGATE
+HG2 8PB
+UNITED KINGDOM</textarea>
+        <div class="hint">One line per address line.</div>
+      </div>
+      <div>
+        <div class="grid" style="grid-template-columns:1fr;">
+          <div><label>End customer</label><input type="text" id="endCustomer" placeholder="e.g. Innovative Technology Ltd"></div>
+          <div><label>Administrative contact</label><input type="text" id="adminContact" placeholder="e.g. Mélodina MONTEIRO SOARES"></div>
+          <div><label>Contact</label><input type="text" id="contactName" placeholder="e.g. Stephen ROBERTS"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Paste area -->
+  <div class="panel">
+    <h2>Products maintained</h2>
+    <label>Paste table from PDF / Excel / any source</label>
+    <textarea class="paste-area" id="pasteBox" placeholder="Paste rows here. One row per product. Columns in order: Description, Serial Number, SLA, Address, Start date, End date. Tabs or 2+ spaces between columns work best."></textarea>
+    <div class="row-actions">
+      <button class="primary" id="parseBtn">Parse pasted text</button>
+      <button id="addRowBtn">+ Add empty row</button>
+      <button class="ghost" id="clearRowsBtn">Clear all rows</button>
+      <button class="ghost" id="loadSampleBtn">Load sample data</button>
+    </div>
+    <div id="parseFeedback" class="parse-feedback"></div>
+
+    <table class="products" id="productsTable">
+      <thead>
+        <tr>
+          <th style="width:14%;">Description</th>
+          <th style="width:18%;">Serial Number</th>
+          <th style="width:10%;">SLA</th>
+          <th style="width:30%;">Address</th>
+          <th style="width:11%;">Start date</th>
+          <th style="width:11%;">End date</th>
+          <th style="width:6%;"></th>
+        </tr>
+      </thead>
+      <tbody id="productsBody"></tbody>
+    </table>
+  </div>
+
+  <div class="footer-actions">
+    <button id="previewBtn">Preview PDF</button>
+    <button class="primary" id="downloadBtn">Download PDF</button>
+  </div>
+
+</div>
+
+<script>
+/* ============================================================
+   Renewtech Contract Confirmation Generator
+   ============================================================ */
+
+const $ = (id) => document.getElementById(id);
+const DEFAULT_LOGO = "data:image/jpeg;base64,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";
+let logoDataUrl = DEFAULT_LOGO;
+
+/* ---------- Logo upload ---------- */
+$('logoFile').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    logoDataUrl = ev.target.result;
+    const p = $('logoPreview');
+    p.innerHTML = '';
+    const img = document.createElement('img');
+    img.src = logoDataUrl;
+    p.appendChild(img);
+  };
+  reader.readAsDataURL(file);
+});
+
+/* ---------- Table row management ---------- */
+function makeRow(data = {}) {
+  const tr = document.createElement('tr');
+  const fields = ['description','serial','sla','address','startDate','endDate'];
+  fields.forEach(f => {
+    const td = document.createElement('td');
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.dataset.field = f;
+    input.value = data[f] || '';
+    td.appendChild(input);
+    tr.appendChild(td);
+  });
+  const tdAct = document.createElement('td');
+  tdAct.style.textAlign = 'center';
+  const btn = document.createElement('button');
+  btn.className = 'danger';
+  btn.textContent = '×';
+  btn.title = 'Remove row';
+  btn.onclick = () => tr.remove();
+  tdAct.appendChild(btn);
+  tr.appendChild(tdAct);
+  return tr;
+}
+
+function addRow(data) {
+  $('productsBody').appendChild(makeRow(data));
+}
+
+$('addRowBtn').onclick = () => addRow();
+$('clearRowsBtn').onclick = () => {
+  if (confirm('Remove all product rows?')) $('productsBody').innerHTML = '';
+};
+
+/* ---------- Paste parsing ----------
+   Tries several strategies in order:
+   1. Tab-separated (one row per line, cols split by \t)
+   2. 2+ spaces as column separator
+   3. Groups of 6 consecutive non-empty lines (handy for PDF copies
+      that put each cell on its own line)
+*/
+function parsePaste(raw) {
+  if (!raw.trim()) return { rows: [], method: 'empty' };
+
+  const lines = raw.replace(/\r/g, '').split('\n').map(l => l.trimEnd());
+
+  // Strategy 1: tab-separated
+  const tabRows = [];
+  let tabOk = true;
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    if (line.includes('\t')) {
+      const parts = line.split('\t').map(s => s.trim());
+      if (parts.length >= 4) { tabRows.push(parts); continue; }
+    }
+    tabOk = false; break;
+  }
+  if (tabOk && tabRows.length) {
+    return { rows: tabRows.map(normaliseParts), method: 'tabs' };
+  }
+
+  // Strategy 2: 2+ spaces as separator
+  const spaceRows = [];
+  let spaceOk = true;
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const parts = line.split(/\s{2,}/).map(s => s.trim()).filter(Boolean);
+    if (parts.length >= 4) { spaceRows.push(parts); continue; }
+    spaceOk = false; break;
+  }
+  if (spaceOk && spaceRows.length) {
+    return { rows: spaceRows.map(normaliseParts), method: 'spaces' };
+  }
+
+  // Strategy 3: groups of N consecutive non-empty lines (PDF copy)
+  const nonEmpty = lines.filter(l => l.trim());
+  if (nonEmpty.length && nonEmpty.length % 6 === 0) {
+    const rows = [];
+    for (let i = 0; i < nonEmpty.length; i += 6) {
+      rows.push(normaliseParts(nonEmpty.slice(i, i + 6)));
+    }
+    return { rows, method: 'line-groups-6' };
+  }
+  // also try 5 (in case SLA or another col is missing)
+  if (nonEmpty.length && nonEmpty.length % 5 === 0) {
+    const rows = [];
+    for (let i = 0; i < nonEmpty.length; i += 5) {
+      const parts = nonEmpty.slice(i, i + 5);
+      parts.splice(2, 0, ''); // insert blank SLA
+      rows.push(normaliseParts(parts));
+    }
+    return { rows, method: 'line-groups-5' };
+  }
+
+  return { rows: [], method: 'failed' };
+}
+
+function normaliseParts(parts) {
+  // Expect: [description, serial, sla, address, startDate, endDate]
+  const [description='', serial='', sla='', address='', startDate='', endDate=''] = parts;
+  return { description, serial, sla, address, startDate, endDate };
+}
+
+$('parseBtn').onclick = () => {
+  const raw = $('pasteBox').value;
+  const { rows, method } = parsePaste(raw);
+  const fb = $('parseFeedback');
+  fb.className = 'parse-feedback';
+  if (!rows.length) {
+    fb.classList.add('warn');
+    fb.textContent = "Couldn't detect a clear table. Try tab-separated (Excel) or paste again — or add rows manually below.";
+    return;
+  }
+  // replace existing rows
+  $('productsBody').innerHTML = '';
+  rows.forEach(r => addRow(r));
+  fb.classList.add('success');
+  const methodLabel = {
+    'tabs': 'tab-separated',
+    'spaces': 'spaces',
+    'line-groups-6': 'one value per line (6 cols)',
+    'line-groups-5': 'one value per line (5 cols, SLA left blank)'
+  }[method] || method;
+  fb.textContent = `Parsed ${rows.length} row${rows.length===1?'':'s'} (${methodLabel}). Review below and edit any cell as needed.`;
+};
+
+/* ---------- Sample data ---------- */
+$('loadSampleBtn').onclick = () => {
+  $('contractNumber').value = 'CBA28AF01';
+  $('contractDate').value = '2026-03-20';
+  $('yourRef').value = '60440P';
+  $('customerNumber').value = '3001606';
+  $('contractStart').value = '2026-03-31';
+  $('contractEnd').value = '2029-03-30';
+  $('endCustomer').value = 'Innovative Technology Ltd';
+  $('adminContact').value = 'Mélodina MONTEIRO SOARES';
+  $('contactName').value = 'Stephen ROBERTS';
+  $('productsBody').innerHTML = '';
+  const sample = [
+    { description:'R740XD', serial:'CN0K6YWCLOG001AL00TEA07', sla:'9X5CTINBD', address:'Innovative Business Park / Derker Street / OL1 4EQ / Oldham / United Kingdom /', startDate:'31/03/2026', endDate:'30/03/2029'},
+    { description:'R740XD2', serial:'HKQC9X2', sla:'9X5CTINBD', address:'Innovative Business Park / Derker Street / OL1 4EQ / Oldham / United Kingdom /', startDate:'31/03/2026', endDate:'30/03/2029'},
+    { description:'R740XD2', serial:'4LQC9X2', sla:'9X5CTINBD', address:'Innovative Business Park / Derker Street / OL1 4EQ / Oldham / United Kingdom /', startDate:'31/03/2026', endDate:'30/03/2029'},
+    { description:'R740XD2', serial:'1LQC9X2', sla:'9X5CTINBD', address:'Innovative Business Park / Derker Street / OL1 4EQ / Oldham / United Kingdom /', startDate:'31/03/2026', endDate:'30/03/2029'}
+  ];
+  sample.forEach(addRow);
+};
+
+/* ---------- Gather form state ---------- */
+function gather() {
+  const rows = [];
+  document.querySelectorAll('#productsBody tr').forEach(tr => {
+    const row = {};
+    tr.querySelectorAll('input[data-field]').forEach(inp => {
+      row[inp.dataset.field] = inp.value.trim();
+    });
+    // keep only rows with at least one value
+    if (Object.values(row).some(v => v)) rows.push(row);
+  });
+  return {
+    contractNumber: $('contractNumber').value.trim(),
+    contractDate:   formatDateUK($('contractDate').value),
+    yourRef:        $('yourRef').value.trim(),
+    customerNumber: $('customerNumber').value.trim(),
+    contractStart:  formatDateUK($('contractStart').value),
+    contractEnd:    formatDateUK($('contractEnd').value),
+    endCustomer:    $('endCustomer').value.trim(),
+    adminContact:   $('adminContact').value.trim(),
+    contactName:    $('contactName').value.trim(),
+    recipientLines: $('recipientBlock').value.split('\n').map(s => s.trim()).filter(Boolean),
+    products: rows
+  };
+}
+
+function formatDateUK(iso) {
+  if (!iso) return '';
+  const [y,m,d] = iso.split('-');
+  if (!y || !m || !d) return iso;
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${months[parseInt(m,10)-1]} ${parseInt(d,10)}, ${y}`;
+}
+
+/* ---------- PDF generation ---------- */
+function buildPdf() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const data = gather();
+
+  const pageW = doc.internal.pageSize.getWidth();
+  const marginL = 18;
+  const marginR = 18;
+
+  // Logo (top-left)
+  let logoHeight = 0;
+  if (logoDataUrl) {
+    try {
+      const fmt = logoDataUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+      doc.addImage(logoDataUrl, fmt, marginL, 14, 50, 14);
+      logoHeight = 14;
+    } catch(e) { console.warn('Logo add failed', e); }
+  }
+
+  // Title (top-right)
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.text(`Contract Confirmation ${data.contractNumber || ''}`.trim(), pageW - marginR, 22, { align: 'right' });
+
+  // Left address block
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  let yL = 40;
+  data.recipientLines.forEach(line => {
+    doc.text(line, marginL, yL);
+    yL += 4.6;
+  });
+
+  // Right-side meta block
+  const metaX = 110;
+  let yR = 40;
+  const metaPair = (label, value) => {
+    doc.setFont('helvetica', 'bold');
+    doc.text(label, metaX, yR);
+    doc.setFont('helvetica', 'normal');
+    doc.text(value || '', metaX + 34, yR);
+    yR += 5;
+  };
+  metaPair('Contract Date :', data.contractDate);
+  metaPair('Your Reference :', data.yourRef);
+  metaPair('Customer Number :', data.customerNumber);
+  yR += 2;
+  doc.setFont('helvetica', 'bold');
+  doc.text('Administrative', metaX, yR); yR += 4;
+  doc.text('contact:', metaX, yR);
+  doc.setFont('helvetica', 'normal');
+  const adminLines = doc.splitTextToSize(data.adminContact || '', 45);
+  doc.text(adminLines, metaX + 34, yR - 4);
+  yR += 4 + (adminLines.length - 1) * 4;
+  doc.setFont('helvetica', 'bold');
+  doc.text('Contact :', metaX, yR);
+  doc.setFont('helvetica', 'normal');
+  doc.text(data.contactName || '', metaX + 34, yR);
+
+  // Greeting + intro
+  let y = Math.max(yL, yR) + 14;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.text('Dear Sir / Madam,', marginL, y); y += 8;
+  doc.text('We acknowledge the receipt of your maintenance order and thank you for your trust.', marginL, y); y += 5;
+  doc.text('For any incident opening, please specify your contract number and the serial number of the product', marginL, y); y += 5;
+  doc.text('maintained.', marginL, y); y += 10;
+
+  // End customer
+  doc.setFont('helvetica', 'bold');
+  doc.text('End customer', marginL, y);
+  doc.setFont('helvetica', 'normal');
+  doc.text(data.endCustomer || '', marginL + 36, y);
+  y += 10;
+
+  // Duration
+  doc.setFont('helvetica', 'bold');
+  doc.text('Duration of the contract', marginL, y);
+  y += 1.5;
+  doc.setLineWidth(0.3);
+  doc.line(marginL, y, marginL + 75, y);
+  y += 5;
+  doc.setFont('helvetica', 'bold'); doc.text('Contract Start:', marginL, y);
+  doc.setFont('helvetica', 'normal'); doc.text(data.contractStart || '', marginL + 30, y);
+  y += 5;
+  doc.setFont('helvetica', 'bold'); doc.text('Contract End:', marginL, y);
+  doc.setFont('helvetica', 'normal'); doc.text(data.contractEnd || '', marginL + 30, y);
+  y += 10;
+
+  // Partnership line
+  doc.setFont('helvetica', 'bold');
+  doc.text('Renewtech in partnership with Evernex.', marginL, y); y += 5;
+  doc.setFont('helvetica', 'normal');
+  doc.text('Call Centre Contact: support@evernex.com - +33 1 48 19 90 30', marginL, y); y += 10;
+
+  // Products table
+  doc.setFont('helvetica', 'bold');
+  doc.text('Products Maintained', marginL, y); y += 3;
+
+  const tableBody = data.products.map(p => [
+    p.description || '', p.serial || '', p.sla || '',
+    p.address || '', p.startDate || '', p.endDate || ''
+  ]);
+
+  doc.autoTable({
+    startY: y,
+    head: [['Description','Serial Number','SLA','Address','Start date','End date']],
+    body: tableBody,
+    theme: 'grid',
+    styles: { fontSize: 8.5, cellPadding: 2, lineColor: [200,200,200], lineWidth: 0.2, valign: 'top' },
+    headStyles: { fillColor: [110,110,110], textColor: [255,255,255], fontStyle: 'bold' },
+    margin: { left: marginL, right: marginR },
+    columnStyles: {
+      0: { cellWidth: 22 },
+      1: { cellWidth: 32 },
+      2: { cellWidth: 20 },
+      3: { cellWidth: 55 },
+      4: { cellWidth: 21 },
+      5: { cellWidth: 21 }
+    }
+  });
+
+  // Signature
+  const finalY = doc.lastAutoTable.finalY + 14;
+  doc.setFont('helvetica', 'normal');
+  doc.text('Yours Sincerely,', marginL, finalY);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Renewtech', marginL, finalY + 5);
+
+  return doc;
+}
+
+$('previewBtn').onclick = () => {
+  const doc = buildPdf();
+  window.open(doc.output('bloburl'), '_blank');
+};
+
+$('downloadBtn').onclick = () => {
+  const doc = buildPdf();
+  const num = ($('contractNumber').value || 'contract').replace(/[^A-Za-z0-9_-]/g, '');
+  doc.save(`Contract_Confirmation_${num}.pdf`);
+};
+
+/* Start with one blank row so the table isn't empty */
+addRow();
+</script>
+</body>
+</html>
